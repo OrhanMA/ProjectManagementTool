@@ -4,10 +4,17 @@ html,
 body {
   min-height: 100%;
   margin: 0;
-  font-family: Inter, Roboto, Arial, sans-serif;
+  font-family: Roboto, Arial, Helvetica, sans-serif;
   background: #eef3f8;
 }
 
 * {
   box-sizing: border-box;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
 }

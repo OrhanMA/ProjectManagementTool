@@ -3,6 +3,7 @@ package com.codesolutions.pmt;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -12,9 +13,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.mail.internet.MimeMessage;
 import jakarta.servlet.http.Cookie;
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -37,6 +40,7 @@ class PmtApiIntegrationTests {
 
   @Test
   void completeProjectAndTaskWorkflow() throws Exception {
+    mockMimeMessages();
     Session admin = register("admin.it", "admin.it@pmt.local");
     Session member = register("member.it", "member.it@pmt.local");
     Session observer = register("observer.it", "observer.it@pmt.local");
@@ -115,8 +119,7 @@ class PmtApiIntegrationTests {
             .andReturn();
     String taskId = json(taskResult).get("id").asText();
 
-    verify(mailSender)
-        .send(org.mockito.ArgumentMatchers.any(org.springframework.mail.SimpleMailMessage.class));
+    verify(mailSender).send(org.mockito.ArgumentMatchers.any(MimeMessage.class));
 
     mockMvc
         .perform(
@@ -166,8 +169,8 @@ class PmtApiIntegrationTests {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.assignee.email").value(observer.email()));
 
-    verify(mailSender, times(2))
-        .send(org.mockito.ArgumentMatchers.any(org.springframework.mail.SimpleMailMessage.class));
+    verify(mailSender, times(2)).createMimeMessage();
+    verify(mailSender, times(2)).send(org.mockito.ArgumentMatchers.any(MimeMessage.class));
 
     mockMvc
         .perform(
@@ -207,6 +210,7 @@ class PmtApiIntegrationTests {
 
   @Test
   void validationAuthenticationAndPermissionErrorsRemainPredictable() throws Exception {
+    mockMimeMessages();
     Session admin = register("admin.errors", "admin.errors@pmt.local");
     Session member = register("member.errors", "member.errors@pmt.local");
 
@@ -415,6 +419,12 @@ class PmtApiIntegrationTests {
 
   private String json(Object value) throws Exception {
     return objectMapper.writeValueAsString(value);
+  }
+
+  private void mockMimeMessages() {
+    when(mailSender.createMimeMessage())
+        .thenAnswer(
+            invocation -> new MimeMessage(jakarta.mail.Session.getInstance(new Properties())));
   }
 
   private record Session(String accessToken, String userId, String email, Cookie refreshCookie) {
