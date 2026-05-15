@@ -1,3 +1,15 @@
 /docs
 .env
 .env.local
+.idea/
+.DS_Store
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+build/
+.gradle/
+target/
+*.log
+docker/.data/

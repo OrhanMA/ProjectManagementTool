@@ -1,0 +1,17 @@
+name: Technical task
+description: Tâche technique PMT
+title: "[Tech] "
+labels: ["architecture"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Objectif
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+    validations:
+      required: true
