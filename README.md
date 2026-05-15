@@ -9,19 +9,23 @@ En réalité, c'est surtout une web app développé dans le cadre de ma formatio
 Le code source du projet est disponible sur Github à l'URL suivante : https://github.com/OrhanMA/ProjectManagementTool
 
 Vous y trouverez des Issues, Pull Requests, Actions relatifs au projet :
-Issues : https://github.com/OrhanMA/ProjectManagementTool/issues?q=is%3Aissue
-PR : https://github.com/OrhanMA/ProjectManagementTool/pulls?q=is%3Apr+
-Actions : https://github.com/OrhanMA/ProjectManagementTool/actions
+
+- Issues : https://github.com/OrhanMA/ProjectManagementTool/issues?q=is%3Aissue
+- PR : https://github.com/OrhanMA/ProjectManagementTool/pulls?q=is%3Apr+
+- Actions : https://github.com/OrhanMA/ProjectManagementTool/actions
 
 ### Images Docker
 
 Il y a une image pour le front et une pour le back. Elles sont poussées sur le registre DockerHub via les Github Actions.
+
 Les images Docker sont présentes à l'URL suivante : https://hub.docker.com/repositories/orhanma
 
 ### Schéma BDD
 
 Le schéma de la base de données est dans architecture/database-schema.md 
+
 Installez un plugin Mermaid dans votre IDE ou allez directement sur Github pour un affichage plus confortable.
+
 Schéma BDD: https://github.com/OrhanMA/ProjectManagementTool/blob/main/architecture/database-schema.md
 
 ## Démo 
