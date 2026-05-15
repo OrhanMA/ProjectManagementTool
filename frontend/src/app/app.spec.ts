@@ -20,8 +20,8 @@ describe('App', () => {
       providers: [
         provideNoopAnimations(),
         { provide: AuthService, useValue: auth },
-        { provide: PmtApiService, useValue: api }
-      ]
+        { provide: PmtApiService, useValue: api },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(App);
@@ -37,7 +37,7 @@ describe('App', () => {
   it('loads projects after login', () => {
     fixture.componentInstance.loginForm.setValue({
       email: 'alice.admin@pmt.local',
-      password: 'Password123!'
+      password: 'Password123!',
     });
 
     fixture.componentInstance.login();
@@ -62,7 +62,7 @@ describe('App', () => {
     fixture.componentInstance.projectForm.setValue({
       name: 'Nouvelle plateforme',
       description: 'Projet créé depuis le test',
-      startDate: '2026-05-15'
+      startDate: '2026-05-15',
     });
 
     fixture.componentInstance.createProject();
@@ -76,6 +76,12 @@ describe('App', () => {
     fixture.componentInstance.selectProject(api.project);
 
     expect(fixture.componentInstance.tasksByStatus('DOING')).toHaveLength(1);
+    expect(fixture.componentInstance.statusIcon('REVIEW')).toBe('rate_review');
+    expect(fixture.componentInstance.priorityClass('HIGH')).toBe('priority-high');
+    expect(fixture.componentInstance.memberInitials(api.member)).toBe('MM');
+    expect(fixture.componentInstance.memberInitials(null)).toBe('NA');
+    expect(fixture.componentInstance.assigneeInitials(api.task)).toBe('MM');
+    expect(fixture.componentInstance.assigneeInitials({ ...api.task, assignee: null })).toBe('NA');
     expect(fixture.componentInstance.statusLabel('TODO')).toBe('À faire');
     expect(fixture.componentInstance.priorityLabel('URGENT')).toBe('Urgent');
     expect(fixture.componentInstance.roleLabel('OBSERVER')).toBe('Observateur');
@@ -94,7 +100,7 @@ describe('App', () => {
     fixture.componentInstance.registerForm.setValue({
       username: 'new.user',
       email: 'new.user@pmt.local',
-      password: 'Password123!'
+      password: 'Password123!',
     });
 
     fixture.componentInstance.register();
@@ -111,7 +117,7 @@ describe('App', () => {
     fixture.componentInstance.registerForm.setValue({
       username: 'new.user',
       email: 'new.user@pmt.local',
-      password: 'Password123!'
+      password: 'Password123!',
     });
     auth.failRegister = true;
     fixture.componentInstance.register();
@@ -151,7 +157,7 @@ describe('App', () => {
       description: 'Construire la vue kanban',
       dueDate: '2026-05-30',
       priority: 'URGENT',
-      assigneeId: 'u2'
+      assigneeId: 'u2',
     });
     fixture.componentInstance.createTask();
 
@@ -168,6 +174,12 @@ describe('App', () => {
     expect(api.updatedTaskStatus).toBe('DONE');
 
     const updated = fixture.componentInstance.tasks()[0];
+    fixture.componentInstance.dropTask({
+      item: { data: updated },
+      container: { data: 'REVIEW' },
+    } as any);
+    expect(api.updatedTaskStatus).toBe('REVIEW');
+
     fixture.componentInstance.assignTask(updated, 'u1');
     expect(api.assignedUserId).toBe('u1');
 
@@ -176,16 +188,64 @@ describe('App', () => {
     expect(fixture.componentInstance.history()).toHaveLength(1);
   });
 
+  it('opens, edits and closes task details', () => {
+    auth.authenticate();
+    fixture.componentInstance.selectProject(api.project);
+    const task = fixture.componentInstance.tasks()[0];
+
+    fixture.componentInstance.openTaskDetail(task);
+
+    expect(fixture.componentInstance.selectedTask()?.id).toBe(task.id);
+    expect(fixture.componentInstance.taskEditForm.getRawValue()).toEqual({
+      name: task.name,
+      description: task.description,
+      dueDate: task.dueDate,
+      endDate: '',
+      priority: task.priority,
+      status: task.status,
+    });
+
+    fixture.componentInstance.taskEditForm.setValue({
+      name: 'Concevoir le modèle final',
+      description: 'Préparer le schéma relationnel validé',
+      dueDate: '2026-05-29',
+      endDate: '2026-06-01',
+      priority: 'URGENT',
+      status: 'REVIEW',
+    });
+    fixture.componentInstance.saveTaskDetails();
+
+    expect(api.lastTaskUpdate).toEqual({
+      name: 'Concevoir le modèle final',
+      description: 'Préparer le schéma relationnel validé',
+      dueDate: '2026-05-29',
+      endDate: '2026-06-01',
+      priority: 'URGENT',
+      status: 'REVIEW',
+    });
+    expect(fixture.componentInstance.selectedTask()?.name).toBe('Concevoir le modèle final');
+
+    fixture.componentInstance.closeTaskDetail();
+    expect(fixture.componentInstance.selectedTask()).toBeNull();
+    expect(fixture.componentInstance.history()).toHaveLength(0);
+  });
+
   it('does not call APIs when project or value is missing', () => {
     fixture.componentInstance.addMember();
     fixture.componentInstance.createTask();
     fixture.componentInstance.moveTask(api.task, api.task.status);
+    fixture.componentInstance.dropTask({
+      item: { data: null },
+      container: { data: 'DONE' },
+    } as any);
     fixture.componentInstance.assignTask(api.task, '');
     fixture.componentInstance.openHistory(api.task);
+    fixture.componentInstance.saveTaskDetails();
 
     expect(api.addedMember).toBe(false);
     expect(api.createdTask).toBe(false);
     expect(api.historyLoaded).toBe(false);
+    expect(api.lastTaskUpdate).toBeNull();
   });
 
   it('resets workspace on logout', () => {
@@ -219,7 +279,7 @@ describe('App', () => {
     fixture.componentInstance.projectForm.setValue({
       name: 'Projet',
       description: 'Description',
-      startDate: '2026-05-15'
+      startDate: '2026-05-15',
     });
     fixture.componentInstance.createProject();
     expect(fixture.componentInstance.error()).toContain('Création du projet impossible');
@@ -240,7 +300,7 @@ describe('App', () => {
       description: 'Description',
       dueDate: '2026-05-20',
       priority: 'HIGH',
-      assigneeId: 'u2'
+      assigneeId: 'u2',
     });
     fixture.componentInstance.createTask();
     expect(fixture.componentInstance.error()).toContain('Création de la tâche impossible');
@@ -253,6 +313,11 @@ describe('App', () => {
 
     api.failUpdateTask = true;
     fixture.componentInstance.moveTask(task, 'DONE');
+    expect(fixture.componentInstance.error()).toContain('Mise à jour de la tâche impossible');
+
+    fixture.componentInstance.openTaskDetail(task);
+    fixture.componentInstance.taskEditForm.patchValue({ name: 'Nom modifié' });
+    fixture.componentInstance.saveTaskDetails();
     expect(fixture.componentInstance.error()).toContain('Mise à jour de la tâche impossible');
 
     api.failAssignTask = true;
@@ -285,17 +350,29 @@ describe('App', () => {
     fixture.componentInstance.selectProject(api.project);
     fixture.componentInstance.tasks.set([
       api.task,
-      { ...api.task, id: 't-other', name: 'Autre tâche', status: 'TODO' }
+      { ...api.task, id: 't-other', name: 'Autre tâche', status: 'TODO' },
     ]);
 
     fixture.componentInstance.moveTask(api.task, 'DONE');
 
-    expect(fixture.componentInstance.tasks().find((task) => task.id === 't-other')?.status).toBe('TODO');
+    expect(fixture.componentInstance.tasks().find((task) => task.id === 't-other')?.status).toBe(
+      'TODO',
+    );
+  });
+
+  it('toggles between kanban and list views', () => {
+    expect(fixture.componentInstance.boardView()).toBe('kanban');
+
+    fixture.componentInstance.boardView.set('list');
+
+    expect(fixture.componentInstance.boardView()).toBe('list');
   });
 });
 
 class FakeAuthService {
-  private readonly userSignal = signal(null as { id: string; username: string; email: string } | null);
+  private readonly userSignal = signal(
+    null as { id: string; username: string; email: string } | null,
+  );
   private readonly tokenSignal = signal(null as string | null);
   readonly user = this.userSignal.asReadonly();
   readonly accessToken = this.tokenSignal.asReadonly();
@@ -357,7 +434,7 @@ class FakePmtApiService {
     id: 'p1',
     name: 'Refonte portail client',
     description: 'Projet demo',
-    startDate: '2026-05-15'
+    startDate: '2026-05-15',
   };
   readonly task = {
     id: 't1',
@@ -367,12 +444,19 @@ class FakePmtApiService {
     endDate: null,
     priority: 'HIGH',
     status: 'DOING',
-    assignee: { id: 'u2', username: 'marc.member', email: 'marc.member@pmt.local' }
+    assignee: { id: 'u2', username: 'marc.member', email: 'marc.member@pmt.local' },
+  } as const;
+  readonly member = {
+    userId: 'u2',
+    username: 'marc.member',
+    email: 'marc.member@pmt.local',
+    role: 'MEMBER',
   } as const;
   createdProjectName = '';
   addedMember = false;
   createdTask = false;
   updatedTaskStatus = '';
+  lastTaskUpdate: Record<string, unknown> | null = null;
   assignedUserId = '';
   historyLoaded = false;
   emptyProjects = false;
@@ -409,8 +493,13 @@ class FakePmtApiService {
       return throwError(() => new Error('members failed'));
     }
     return of([
-      { userId: 'u1', username: 'alice.admin', email: 'alice.admin@pmt.local', role: 'ADMINISTRATOR' },
-      { userId: 'u2', username: 'marc.member', email: 'marc.member@pmt.local', role: 'MEMBER' }
+      {
+        userId: 'u1',
+        username: 'alice.admin',
+        email: 'alice.admin@pmt.local',
+        role: 'ADMINISTRATOR',
+      },
+      this.member,
     ]);
   }
 
@@ -419,7 +508,12 @@ class FakePmtApiService {
       return throwError(() => new Error('add member failed'));
     }
     this.addedMember = true;
-    return of({ userId: 'u3', username: 'new.member', email: 'new.member@pmt.local', role: 'MEMBER' });
+    return of({
+      userId: 'u3',
+      username: 'new.member',
+      email: 'new.member@pmt.local',
+      role: 'MEMBER',
+    });
   }
 
   listTasks() {
@@ -442,16 +536,21 @@ class FakePmtApiService {
       endDate: null,
       priority: 'MEDIUM',
       status: 'BACKLOG',
-      assignee: null
+      assignee: null,
     });
   }
 
-  updateTask(_projectId: string, _taskId: string, updates: { status?: string }) {
+  updateTask(_projectId: string, _taskId: string, updates: Record<string, unknown>) {
     if (this.failUpdateTask) {
       return throwError(() => new Error('update task failed'));
     }
-    this.updatedTaskStatus = updates.status || '';
-    return of({ ...this.task, status: updates.status || this.task.status });
+    this.lastTaskUpdate = updates;
+    this.updatedTaskStatus = String(updates['status'] || '');
+    return of({
+      ...this.task,
+      ...updates,
+      status: updates['status'] || this.task.status,
+    });
   }
 
   assignTask(_projectId: string, _taskId: string, assigneeId: string) {
@@ -459,7 +558,10 @@ class FakePmtApiService {
       return throwError(() => new Error('assign task failed'));
     }
     this.assignedUserId = assigneeId;
-    return of({ ...this.task, assignee: { id: assigneeId, username: 'alice.admin', email: 'alice.admin@pmt.local' } });
+    return of({
+      ...this.task,
+      assignee: { id: assigneeId, username: 'alice.admin', email: 'alice.admin@pmt.local' },
+    });
   }
 
   taskHistory() {
@@ -473,8 +575,8 @@ class FakePmtApiService {
         oldValue: 'DOING',
         newValue: 'DONE',
         actorEmail: 'alice.admin@pmt.local',
-        changedAt: '2026-05-15T10:00:00Z'
-      }
+        changedAt: '2026-05-15T10:00:00Z',
+      },
     ]);
   }
 }

@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -15,13 +16,22 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from './core/auth.service';
-import { Project, ProjectMember, ProjectRole, ProjectTask, TaskHistoryEntry, TaskPriority, TaskStatus } from './core/api.models';
+import {
+  Project,
+  ProjectMember,
+  ProjectRole,
+  ProjectTask,
+  TaskHistoryEntry,
+  TaskPriority,
+  TaskStatus,
+} from './core/api.models';
 import { PmtApiService } from './core/pmt-api.service';
 
 @Component({
   selector: 'app-root',
   imports: [
     CommonModule,
+    DragDropModule,
     ReactiveFormsModule,
     MatButtonModule,
     MatCardModule,
@@ -35,10 +45,10 @@ import { PmtApiService } from './core/pmt-api.service';
     MatSidenavModule,
     MatTabsModule,
     MatToolbarModule,
-    MatTooltipModule
+    MatTooltipModule,
   ],
   templateUrl: './app.html',
-  styleUrl: './app.scss'
+  styleUrl: './app.scss',
 })
 export class App implements OnInit {
   private readonly fb = inject(FormBuilder);
@@ -58,31 +68,39 @@ export class App implements OnInit {
   readonly selectedTask = signal<ProjectTask | null>(null);
   readonly history = signal<TaskHistoryEntry[]>([]);
   readonly error = signal<string | null>(null);
+  readonly boardView = signal<'kanban' | 'list'>('kanban');
 
   readonly user = this.auth.user;
   readonly isAuthenticated = this.auth.isAuthenticated;
-  readonly dashboardTitle = computed(() => this.selectedProject()?.name ?? 'Aucun projet sélectionné');
+  readonly dashboardTitle = computed(
+    () => this.selectedProject()?.name ?? 'Aucun projet sélectionné',
+  );
+  readonly totalTasks = computed(() => this.tasks().length);
+  readonly completedTasks = computed(
+    () => this.tasks().filter((task) => task.status === 'DONE').length,
+  );
+  readonly openTasks = computed(() => this.tasks().filter((task) => task.status !== 'DONE').length);
 
   readonly loginForm = this.fb.nonNullable.group({
     email: ['alice.admin@pmt.local', [Validators.required, Validators.email]],
-    password: ['Password123!', [Validators.required]]
+    password: ['Password123!', [Validators.required]],
   });
 
   readonly registerForm = this.fb.nonNullable.group({
     username: ['', [Validators.required, Validators.maxLength(80)]],
     email: ['', [Validators.required, Validators.email, Validators.maxLength(180)]],
-    password: ['', [Validators.required, Validators.minLength(8)]]
+    password: ['', [Validators.required, Validators.minLength(8)]],
   });
 
   readonly projectForm = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(140)]],
     description: ['', [Validators.required, Validators.maxLength(1000)]],
-    startDate: [new Date().toISOString().slice(0, 10), [Validators.required]]
+    startDate: [new Date().toISOString().slice(0, 10), [Validators.required]],
   });
 
   readonly memberForm = this.fb.nonNullable.group({
     email: ['marc.member@pmt.local', [Validators.required, Validators.email]],
-    role: ['MEMBER' as ProjectRole, [Validators.required]]
+    role: ['MEMBER' as ProjectRole, [Validators.required]],
   });
 
   readonly taskForm = this.fb.group({
@@ -90,13 +108,22 @@ export class App implements OnInit {
     description: ['', [Validators.required, Validators.maxLength(2000)]],
     dueDate: [new Date().toISOString().slice(0, 10), [Validators.required]],
     priority: ['MEDIUM' as TaskPriority, [Validators.required]],
-    assigneeId: [null as string | null]
+    assigneeId: [null as string | null],
+  });
+
+  readonly taskEditForm = this.fb.nonNullable.group({
+    name: ['', [Validators.required, Validators.maxLength(160)]],
+    description: ['', [Validators.required, Validators.maxLength(2000)]],
+    dueDate: ['', [Validators.required]],
+    endDate: [''],
+    priority: ['MEDIUM' as TaskPriority, [Validators.required]],
+    status: ['BACKLOG' as TaskStatus, [Validators.required]],
   });
 
   ngOnInit() {
     this.auth.refresh().subscribe({
       next: () => this.loadProjects(),
-      error: () => this.auth.clearSession()
+      error: () => this.auth.clearSession(),
     });
   }
 
@@ -105,10 +132,12 @@ export class App implements OnInit {
       return;
     }
     this.withLoading(() =>
-      this.auth.login(this.loginForm.controls.email.value, this.loginForm.controls.password.value).subscribe({
-        next: () => this.loadProjects(),
-        error: () => this.showError("Connexion impossible. Vérifiez vos identifiants.")
-      })
+      this.auth
+        .login(this.loginForm.controls.email.value, this.loginForm.controls.password.value)
+        .subscribe({
+          next: () => this.loadProjects(),
+          error: () => this.showError('Connexion impossible. Vérifiez vos identifiants.'),
+        }),
     );
   }
 
@@ -120,13 +149,15 @@ export class App implements OnInit {
     this.withLoading(() =>
       this.auth.register(value.username, value.email, value.password).subscribe({
         next: () => this.loadProjects(),
-        error: () => this.showError("Inscription impossible. Vérifiez les informations saisies.")
-      })
+        error: () => this.showError('Inscription impossible. Vérifiez les informations saisies.'),
+      }),
     );
   }
 
   logout() {
-    this.auth.logout().subscribe({ next: () => this.resetWorkspace(), error: () => this.resetWorkspace() });
+    this.auth
+      .logout()
+      .subscribe({ next: () => this.resetWorkspace(), error: () => this.resetWorkspace() });
   }
 
   createProject() {
@@ -136,18 +167,21 @@ export class App implements OnInit {
     const value = this.projectForm.getRawValue();
     this.api.createProject(value.name, value.description, value.startDate).subscribe({
       next: (project) => {
-        this.projectForm.reset({ name: '', description: '', startDate: new Date().toISOString().slice(0, 10) });
+        this.projectForm.reset({
+          name: '',
+          description: '',
+          startDate: new Date().toISOString().slice(0, 10),
+        });
         this.projects.update((projects) => [project, ...projects]);
         this.selectProject(project);
       },
-      error: () => this.showError('Création du projet impossible.')
+      error: () => this.showError('Création du projet impossible.'),
     });
   }
 
   selectProject(project: Project) {
     this.selectedProject.set(project);
-    this.selectedTask.set(null);
-    this.history.set([]);
+    this.closeTaskDetail();
     this.loadMembers(project.id);
     this.loadTasks(project.id);
   }
@@ -160,7 +194,7 @@ export class App implements OnInit {
     const value = this.memberForm.getRawValue();
     this.api.addMember(project.id, value.email, value.role).subscribe({
       next: (member) => this.members.update((members) => [...members, member]),
-      error: () => this.showError("Ajout du membre impossible. L'utilisateur doit déjà exister.")
+      error: () => this.showError("Ajout du membre impossible. L'utilisateur doit déjà exister."),
     });
   }
 
@@ -171,7 +205,14 @@ export class App implements OnInit {
     }
     const value = this.taskForm.getRawValue();
     this.api
-      .createTask(project.id, value.name!, value.description!, value.dueDate!, value.priority!, value.assigneeId)
+      .createTask(
+        project.id,
+        value.name!,
+        value.description!,
+        value.dueDate!,
+        value.priority!,
+        value.assigneeId,
+      )
       .subscribe({
         next: (task) => {
           this.tasks.update((tasks) => [task, ...tasks]);
@@ -180,10 +221,10 @@ export class App implements OnInit {
             description: '',
             dueDate: new Date().toISOString().slice(0, 10),
             priority: 'MEDIUM',
-            assigneeId: null
+            assigneeId: null,
           });
         },
-        error: () => this.showError('Création de la tâche impossible.')
+        error: () => this.showError('Création de la tâche impossible.'),
       });
   }
 
@@ -194,8 +235,17 @@ export class App implements OnInit {
     }
     this.api.updateTask(project.id, task.id, { status }).subscribe({
       next: (updated) => this.replaceTask(updated),
-      error: () => this.showError('Mise à jour de la tâche impossible.')
+      error: () => this.showError('Mise à jour de la tâche impossible.'),
     });
+  }
+
+  dropTask(event: CdkDragDrop<TaskStatus, TaskStatus, ProjectTask>) {
+    const task = event.item.data;
+    const status = event.container.data;
+    if (!task || !status) {
+      return;
+    }
+    this.moveTask(task, status);
   }
 
   assignTask(task: ProjectTask, assigneeId: string) {
@@ -205,24 +255,110 @@ export class App implements OnInit {
     }
     this.api.assignTask(project.id, task.id, assigneeId).subscribe({
       next: (updated) => this.replaceTask(updated),
-      error: () => this.showError("Assignation de la tâche impossible.")
+      error: () => this.showError('Assignation de la tâche impossible.'),
     });
   }
 
-  openHistory(task: ProjectTask) {
+  openTaskDetail(task: ProjectTask) {
     const project = this.selectedProject();
     if (!project) {
       return;
     }
     this.selectedTask.set(task);
+    this.taskEditForm.reset({
+      name: task.name,
+      description: task.description,
+      dueDate: task.dueDate,
+      endDate: task.endDate ?? '',
+      priority: task.priority,
+      status: task.status,
+    });
     this.api.taskHistory(project.id, task.id).subscribe({
       next: (entries) => this.history.set(entries),
-      error: () => this.showError("Chargement de l'historique impossible.")
+      error: () => this.showError("Chargement de l'historique impossible."),
     });
+  }
+
+  openHistory(task: ProjectTask) {
+    this.openTaskDetail(task);
+  }
+
+  closeTaskDetail() {
+    this.selectedTask.set(null);
+    this.history.set([]);
+    this.taskEditForm.reset({
+      name: '',
+      description: '',
+      dueDate: '',
+      endDate: '',
+      priority: 'MEDIUM',
+      status: 'BACKLOG',
+    });
+  }
+
+  saveTaskDetails() {
+    const project = this.selectedProject();
+    const task = this.selectedTask();
+    if (!project || !task || this.taskEditForm.invalid) {
+      return;
+    }
+    const value = this.taskEditForm.getRawValue();
+    this.api
+      .updateTask(project.id, task.id, {
+        name: value.name,
+        description: value.description,
+        dueDate: value.dueDate,
+        endDate: value.endDate || null,
+        priority: value.priority,
+        status: value.status,
+      })
+      .subscribe({
+        next: (updated) => this.replaceTask(updated),
+        error: () => this.showError('Mise à jour de la tâche impossible.'),
+      });
   }
 
   tasksByStatus(status: TaskStatus) {
     return this.tasks().filter((task) => task.status === status);
+  }
+
+  statusIcon(status: TaskStatus) {
+    const icons: Record<TaskStatus, string> = {
+      BACKLOG: 'inventory_2',
+      TODO: 'radio_button_unchecked',
+      DOING: 'cycle',
+      REVIEW: 'rate_review',
+      DONE: 'check_circle',
+    };
+    return icons[status];
+  }
+
+  priorityClass(priority: TaskPriority) {
+    return `priority-${priority.toLowerCase()}`;
+  }
+
+  memberInitials(member: ProjectMember | null | undefined) {
+    if (!member) {
+      return 'NA';
+    }
+    return member.username
+      .split(/[._\s-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('');
+  }
+
+  assigneeInitials(task: ProjectTask) {
+    if (!task.assignee) {
+      return 'NA';
+    }
+    return this.memberInitials({
+      userId: task.assignee.id,
+      username: task.assignee.username,
+      email: task.assignee.email,
+      role: 'MEMBER',
+    });
   }
 
   statusLabel(status: TaskStatus) {
@@ -231,7 +367,7 @@ export class App implements OnInit {
       TODO: 'À faire',
       DOING: 'En cours',
       REVIEW: 'Revue',
-      DONE: 'Terminé'
+      DONE: 'Terminé',
     };
     return labels[status];
   }
@@ -241,7 +377,7 @@ export class App implements OnInit {
       URGENT: 'Urgent',
       HIGH: 'Haute',
       MEDIUM: 'Moyenne',
-      LOW: 'Basse'
+      LOW: 'Basse',
     };
     return labels[priority];
   }
@@ -250,7 +386,7 @@ export class App implements OnInit {
     const labels: Record<ProjectRole, string> = {
       ADMINISTRATOR: 'Administrateur',
       MEMBER: 'Membre',
-      OBSERVER: 'Observateur'
+      OBSERVER: 'Observateur',
     };
     return labels[role];
   }
@@ -263,28 +399,28 @@ export class App implements OnInit {
           this.selectProject(projects[0]);
         }
       },
-      error: () => this.showError('Chargement des projets impossible.')
+      error: () => this.showError('Chargement des projets impossible.'),
     });
   }
 
   private loadMembers(projectId: string) {
     this.api.listMembers(projectId).subscribe({
       next: (members) => this.members.set(members),
-      error: () => this.showError('Chargement des membres impossible.')
+      error: () => this.showError('Chargement des membres impossible.'),
     });
   }
 
   private loadTasks(projectId: string) {
     this.api.listTasks(projectId).subscribe({
       next: (tasks) => this.tasks.set(tasks),
-      error: () => this.showError('Chargement des tâches impossible.')
+      error: () => this.showError('Chargement des tâches impossible.'),
     });
   }
 
   private replaceTask(updated: ProjectTask) {
     this.tasks.update((tasks) => tasks.map((task) => (task.id === updated.id ? updated : task)));
     if (this.selectedTask()?.id === updated.id) {
-      this.openHistory(updated);
+      this.openTaskDetail(updated);
     }
   }
 
@@ -294,8 +430,7 @@ export class App implements OnInit {
     this.members.set([]);
     this.tasks.set([]);
     this.selectedProject.set(null);
-    this.selectedTask.set(null);
-    this.history.set([]);
+    this.closeTaskDetail();
   }
 
   private withLoading(action: () => void) {

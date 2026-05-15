@@ -8,8 +8,12 @@
         dans un environnement local reproductible.
       </p>
       <div class="public-actions">
-        <button mat-flat-button color="primary" type="button" (click)="authMode.set('login')">Connexion</button>
-        <button mat-stroked-button type="button" (click)="authMode.set('register')">Inscription</button>
+        <button mat-flat-button color="primary" type="button" (click)="authMode.set('login')">
+          Connexion
+        </button>
+        <button mat-stroked-button type="button" (click)="authMode.set('register')">
+          Inscription
+        </button>
       </div>
     </section>
 
@@ -26,7 +30,12 @@
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Mot de passe</mat-label>
-              <input matInput formControlName="password" type="password" autocomplete="current-password" />
+              <input
+                matInput
+                formControlName="password"
+                type="password"
+                autocomplete="current-password"
+              />
             </mat-form-field>
             <button mat-flat-button color="primary" type="submit">Se connecter</button>
           </form>
@@ -42,7 +51,12 @@
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Mot de passe</mat-label>
-              <input matInput formControlName="password" type="password" autocomplete="new-password" />
+              <input
+                matInput
+                formControlName="password"
+                type="password"
+                autocomplete="new-password"
+              />
             </mat-form-field>
             <button mat-flat-button color="primary" type="submit">Créer le compte</button>
           </form>
@@ -59,16 +73,26 @@
 } @else {
   <mat-sidenav-container class="app-shell">
     <mat-sidenav mode="side" opened class="sidebar">
-      <div class="brand">
+      <div class="brand-block">
         <span class="brand-mark">PMT</span>
-        <span>{{ user()?.username }}</span>
+        <div>
+          <strong>Project Management Tool</strong>
+          <span>{{ user()?.username }}</span>
+        </div>
       </div>
 
-      <mat-nav-list>
+      <div class="nav-label">Projets</div>
+      <mat-nav-list class="project-list">
         @for (project of projects(); track project.id) {
-          <button mat-button class="project-link" type="button" (click)="selectProject(project)">
+          <button
+            mat-button
+            class="project-link"
+            [class.active-project]="selectedProject()?.id === project.id"
+            type="button"
+            (click)="selectProject(project)"
+          >
             <mat-icon>folder</mat-icon>
-            <span>{{ project.name }}</span>
+            <span class="project-name">{{ project.name }}</span>
           </button>
         }
       </mat-nav-list>
@@ -93,159 +117,266 @@
 
     <mat-sidenav-content>
       <mat-toolbar class="topbar">
-        <div>
-          <span class="eyebrow">Tableau de bord</span>
+        <div class="topbar-title">
+          <span class="breadcrumbs">PMT / Projets / {{ dashboardTitle() }}</span>
           <h1>{{ dashboardTitle() }}</h1>
         </div>
-        <button mat-icon-button matTooltip="Déconnexion" type="button" (click)="logout()">
-          <mat-icon>logout</mat-icon>
-        </button>
+        <div class="topbar-actions">
+          <span class="metric-pill">
+            <strong>{{ totalTasks() }}</strong>
+            tâches
+          </span>
+          <span class="metric-pill">
+            <strong>{{ openTasks() }}</strong>
+            ouvertes
+          </span>
+          <span class="metric-pill done">
+            <strong>{{ completedTasks() }}</strong>
+            terminées
+          </span>
+          <button mat-icon-button matTooltip="Déconnexion" type="button" (click)="logout()">
+            <mat-icon>logout</mat-icon>
+          </button>
+        </div>
       </mat-toolbar>
 
       <section class="workspace">
         @if (error()) {
-          <p class="error">{{ error() }}</p>
+          <p class="error">
+            <mat-icon>error</mat-icon>
+            <span>{{ error() }}</span>
+          </p>
         }
 
         @if (selectedProject()) {
-          <div class="workspace-grid">
-            <mat-card class="panel">
-              <mat-card-header>
-                <mat-card-title>Membres</mat-card-title>
-              </mat-card-header>
-              <mat-card-content>
-                <mat-list>
-                  @for (member of members(); track member.userId) {
-                    <mat-list-item>
-                      <mat-icon matListItemIcon>person</mat-icon>
-                      <div matListItemTitle>{{ member.username }}</div>
-                      <div matListItemLine>{{ member.email }} · {{ roleLabel(member.role) }}</div>
-                    </mat-list-item>
-                  }
-                </mat-list>
-
-                <form [formGroup]="memberForm" (ngSubmit)="addMember()" class="inline-form">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Email</mat-label>
-                    <input matInput formControlName="email" type="email" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Rôle</mat-label>
-                    <mat-select formControlName="role">
-                      @for (role of roles; track role) {
-                        <mat-option [value]="role">{{ roleLabel(role) }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-                  <button mat-flat-button color="primary" type="submit">Ajouter</button>
-                </form>
-              </mat-card-content>
-            </mat-card>
-
-            <mat-card class="panel">
-              <mat-card-header>
-                <mat-card-title>Nouvelle tâche</mat-card-title>
-              </mat-card-header>
-              <mat-card-content>
-                <form [formGroup]="taskForm" (ngSubmit)="createTask()" class="task-form">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Nom</mat-label>
-                    <input matInput formControlName="name" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Description</mat-label>
-                    <textarea matInput formControlName="description" rows="3"></textarea>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Échéance</mat-label>
-                    <input matInput formControlName="dueDate" type="date" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Priorité</mat-label>
-                    <mat-select formControlName="priority">
-                      @for (priority of priorities; track priority) {
-                        <mat-option [value]="priority">{{ priorityLabel(priority) }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Assigné</mat-label>
-                    <mat-select formControlName="assigneeId">
-                      <mat-option [value]="null">Non assignée</mat-option>
-                      @for (member of members(); track member.userId) {
-                        <mat-option [value]="member.userId">{{ member.username }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-                  <button mat-flat-button color="primary" type="submit">Créer la tâche</button>
-                </form>
-              </mat-card-content>
-            </mat-card>
+          <div class="project-header">
+            <div class="project-copy">
+              <span class="project-type">Projet logiciel</span>
+              <p>{{ selectedProject()?.description }}</p>
+              <span class="project-date">Démarré le {{ selectedProject()?.startDate }}</span>
+            </div>
+            <div class="member-roster" aria-label="Membres du projet">
+              @for (member of members(); track member.userId) {
+                <span
+                  class="avatar"
+                  [matTooltip]="member.username + ' · ' + roleLabel(member.role)"
+                >
+                  {{ memberInitials(member) }}
+                </span>
+              }
+            </div>
           </div>
 
-          <section class="kanban" aria-label="Tâches par statut">
-            @for (status of statuses; track status) {
-              <div class="kanban-column">
-                <header>
-                  <h2>{{ statusLabel(status) }}</h2>
-                  <span>{{ tasksByStatus(status).length }}</span>
-                </header>
+          <section class="command-strip">
+            <form [formGroup]="taskForm" (ngSubmit)="createTask()" class="task-form">
+              <mat-form-field appearance="outline">
+                <mat-label>Nom</mat-label>
+                <input matInput formControlName="name" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="description-field">
+                <mat-label>Description</mat-label>
+                <textarea matInput formControlName="description" rows="1"></textarea>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Échéance</mat-label>
+                <input matInput formControlName="dueDate" type="date" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Priorité</mat-label>
+                <mat-select formControlName="priority">
+                  @for (priority of priorities; track priority) {
+                    <mat-option [value]="priority">{{ priorityLabel(priority) }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Assigné</mat-label>
+                <mat-select formControlName="assigneeId">
+                  <mat-option [value]="null">Non assignée</mat-option>
+                  @for (member of members(); track member.userId) {
+                    <mat-option [value]="member.userId">{{ member.username }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <button mat-flat-button color="primary" type="submit">
+                <mat-icon>add</mat-icon>
+                Créer
+              </button>
+            </form>
 
-                @for (task of tasksByStatus(status); track task.id) {
-                  <mat-card class="task-card">
-                    <mat-card-title>{{ task.name }}</mat-card-title>
-                    <p>{{ task.description }}</p>
-                    <mat-chip-set>
-                      <mat-chip>{{ priorityLabel(task.priority) }}</mat-chip>
-                      <mat-chip>{{ task.dueDate }}</mat-chip>
-                    </mat-chip-set>
-                    <p class="assignee">{{ task.assignee?.username || 'Non assignée' }}</p>
-                    <div class="task-actions">
-                      <mat-form-field appearance="outline">
-                        <mat-label>Statut</mat-label>
-                        <mat-select [value]="task.status" (selectionChange)="moveTask(task, $event.value)">
-                          @for (target of statuses; track target) {
-                            <mat-option [value]="target">{{ statusLabel(target) }}</mat-option>
-                          }
-                        </mat-select>
-                      </mat-form-field>
-                      <mat-form-field appearance="outline">
-                        <mat-label>Assigner</mat-label>
-                        <mat-select [value]="task.assignee?.id || null" (selectionChange)="assignTask(task, $event.value)">
-                          @for (member of members(); track member.userId) {
-                            <mat-option [value]="member.userId">{{ member.username }}</mat-option>
-                          }
-                        </mat-select>
-                      </mat-form-field>
-                      <button mat-icon-button matTooltip="Historique" type="button" (click)="openHistory(task)">
-                        <mat-icon>history</mat-icon>
-                      </button>
-                    </div>
-                  </mat-card>
-                }
-              </div>
-            }
+            <form [formGroup]="memberForm" (ngSubmit)="addMember()" class="member-form">
+              <mat-form-field appearance="outline">
+                <mat-label>Email membre</mat-label>
+                <input matInput formControlName="email" type="email" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Rôle</mat-label>
+                <mat-select formControlName="role">
+                  @for (role of roles; track role) {
+                    <mat-option [value]="role">{{ roleLabel(role) }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <button mat-stroked-button type="submit">
+                <mat-icon>person_add</mat-icon>
+                Ajouter
+              </button>
+            </form>
+
+            <div class="view-switch" role="group" aria-label="Vue des tâches">
+              <button
+                mat-button
+                type="button"
+                [class.active-view]="boardView() === 'kanban'"
+                (click)="boardView.set('kanban')"
+              >
+                <mat-icon>view_kanban</mat-icon>
+                Kanban
+              </button>
+              <button
+                mat-button
+                type="button"
+                [class.active-view]="boardView() === 'list'"
+                (click)="boardView.set('list')"
+              >
+                <mat-icon>view_list</mat-icon>
+                Liste
+              </button>
+            </div>
           </section>
 
-          @if (selectedTask()) {
-            <mat-card class="history-panel">
-              <mat-card-header>
-                <mat-card-title>Historique · {{ selectedTask()?.name }}</mat-card-title>
-              </mat-card-header>
-              <mat-card-content>
-                @for (entry of history(); track entry.changedAt + entry.fieldName) {
-                  <p>
-                    <strong>{{ entry.fieldName }}</strong>
-                    modifié par {{ entry.actorEmail }}:
-                    <span>{{ entry.oldValue || 'vide' }}</span>
-                    →
-                    <span>{{ entry.newValue || 'vide' }}</span>
-                  </p>
-                } @empty {
-                  <p>Aucune modification tracée.</p>
-                }
-              </mat-card-content>
-            </mat-card>
+          @if (boardView() === 'kanban') {
+            <section class="kanban" cdkDropListGroup aria-label="Tâches par statut">
+              @for (status of statuses; track status) {
+                <section
+                  class="kanban-column"
+                  cdkDropList
+                  [cdkDropListData]="status"
+                  (cdkDropListDropped)="dropTask($event)"
+                >
+                  <header class="column-header">
+                    <div>
+                      <mat-icon>{{ statusIcon(status) }}</mat-icon>
+                      <h2>{{ statusLabel(status) }}</h2>
+                    </div>
+                    <span>{{ tasksByStatus(status).length }}</span>
+                  </header>
+
+                  <div class="task-stack">
+                    @for (task of tasksByStatus(status); track task.id) {
+                      <article
+                        class="task-card"
+                        cdkDrag
+                        [cdkDragData]="task"
+                        [class.selected-task]="selectedTask()?.id === task.id"
+                        (click)="openTaskDetail(task)"
+                      >
+                        <div class="task-card-top">
+                          <span class="issue-key">PMT-{{ task.id.slice(0, 4).toUpperCase() }}</span>
+                          <button
+                            mat-icon-button
+                            matTooltip="Déplacer"
+                            type="button"
+                            cdkDragHandle
+                            (click)="$event.stopPropagation()"
+                          >
+                            <mat-icon>drag_indicator</mat-icon>
+                          </button>
+                        </div>
+                        <h3>{{ task.name }}</h3>
+                        <p>{{ task.description }}</p>
+                        <div class="task-meta">
+                          <span class="priority" [ngClass]="priorityClass(task.priority)">
+                            {{ priorityLabel(task.priority) }}
+                          </span>
+                          <span class="due-date">
+                            <mat-icon>event</mat-icon>
+                            {{ task.dueDate }}
+                          </span>
+                        </div>
+                        <div class="task-footer" (click)="$event.stopPropagation()">
+                          <mat-form-field appearance="outline">
+                            <mat-label>Statut</mat-label>
+                            <mat-select
+                              [value]="task.status"
+                              (selectionChange)="moveTask(task, $event.value)"
+                            >
+                              @for (statusOption of statuses; track statusOption) {
+                                <mat-option [value]="statusOption">{{
+                                  statusLabel(statusOption)
+                                }}</mat-option>
+                              }
+                            </mat-select>
+                          </mat-form-field>
+                          <mat-form-field appearance="outline">
+                            <mat-label>Assigné</mat-label>
+                            <mat-select
+                              [value]="task.assignee?.id || null"
+                              (selectionChange)="assignTask(task, $event.value)"
+                            >
+                              @for (member of members(); track member.userId) {
+                                <mat-option [value]="member.userId">{{
+                                  member.username
+                                }}</mat-option>
+                              }
+                            </mat-select>
+                          </mat-form-field>
+                          <span
+                            class="avatar small"
+                            [matTooltip]="task.assignee?.username || 'Non assignée'"
+                          >
+                            {{ assigneeInitials(task) }}
+                          </span>
+                        </div>
+                      </article>
+                    } @empty {
+                      <div class="empty-column">
+                        <mat-icon>add_task</mat-icon>
+                      </div>
+                    }
+                  </div>
+                </section>
+              }
+            </section>
+          } @else {
+            <section class="task-list" aria-label="Liste des tâches">
+              <header class="task-list-row task-list-head">
+                <span>Tâche</span>
+                <span>Statut</span>
+                <span>Priorité</span>
+                <span>Assigné</span>
+                <span>Échéance</span>
+              </header>
+              @for (task of tasks(); track task.id) {
+                <article class="task-list-row" (click)="openTaskDetail(task)">
+                  <div class="list-task-title">
+                    <span class="issue-key">PMT-{{ task.id.slice(0, 4).toUpperCase() }}</span>
+                    <strong>{{ task.name }}</strong>
+                    <small>{{ task.description }}</small>
+                  </div>
+                  <mat-form-field appearance="outline" (click)="$event.stopPropagation()">
+                    <mat-label>Statut</mat-label>
+                    <mat-select
+                      [value]="task.status"
+                      (selectionChange)="moveTask(task, $event.value)"
+                    >
+                      @for (statusOption of statuses; track statusOption) {
+                        <mat-option [value]="statusOption">{{
+                          statusLabel(statusOption)
+                        }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <span class="priority" [ngClass]="priorityClass(task.priority)">
+                    {{ priorityLabel(task.priority) }}
+                  </span>
+                  <span>{{ task.assignee?.username || 'Non assignée' }}</span>
+                  <span>{{ task.dueDate }}</span>
+                </article>
+              } @empty {
+                <div class="empty-list">Aucune tâche dans ce projet.</div>
+              }
+            </section>
           }
         } @else {
           <mat-card class="empty-state">
@@ -256,4 +387,98 @@
       </section>
     </mat-sidenav-content>
   </mat-sidenav-container>
+
+  @if (selectedTask()) {
+    <div class="modal-backdrop" (click)="closeTaskDetail()">
+      <section
+        class="task-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Détail de la tâche"
+        (click)="$event.stopPropagation()"
+      >
+        <header class="modal-header">
+          <div>
+            <span class="issue-key">PMT-{{ selectedTask()?.id?.slice(0, 4)?.toUpperCase() }}</span>
+            <h2>{{ selectedTask()?.name }}</h2>
+          </div>
+          <button mat-icon-button matTooltip="Fermer" type="button" (click)="closeTaskDetail()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </header>
+
+        <div class="modal-content">
+          <form [formGroup]="taskEditForm" (ngSubmit)="saveTaskDetails()" class="edit-task-form">
+            <mat-form-field appearance="outline">
+              <mat-label>Nom</mat-label>
+              <input matInput formControlName="name" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Description</mat-label>
+              <textarea matInput formControlName="description" rows="6"></textarea>
+            </mat-form-field>
+            <div class="edit-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Échéance</mat-label>
+                <input matInput formControlName="dueDate" type="date" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Date de fin</mat-label>
+                <input matInput formControlName="endDate" type="date" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Priorité</mat-label>
+                <mat-select formControlName="priority">
+                  @for (priority of priorities; track priority) {
+                    <mat-option [value]="priority">{{ priorityLabel(priority) }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Statut</mat-label>
+                <mat-select formControlName="status">
+                  @for (status of statuses; track status) {
+                    <mat-option [value]="status">{{ statusLabel(status) }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+            <div class="modal-actions">
+              <button mat-stroked-button type="button" (click)="closeTaskDetail()">Annuler</button>
+              <button mat-flat-button color="primary" type="submit">
+                <mat-icon>save</mat-icon>
+                Enregistrer
+              </button>
+            </div>
+          </form>
+
+          <aside class="history-timeline">
+            <div class="history-title">
+              <mat-icon>history</mat-icon>
+              <h3>Historique</h3>
+            </div>
+            @for (entry of history(); track entry.changedAt + entry.fieldName) {
+              <article class="history-entry">
+                <span class="history-dot"></span>
+                <div>
+                  <strong>{{ entry.fieldName }}</strong>
+                  <p>
+                    <span>{{ entry.oldValue || 'vide' }}</span>
+                    <mat-icon>arrow_forward</mat-icon>
+                    <span>{{ entry.newValue || 'vide' }}</span>
+                  </p>
+                  <small>{{ entry.actorEmail }} · {{ entry.changedAt }}</small>
+                </div>
+              </article>
+            } @empty {
+              <div class="empty-history">
+                <mat-icon>history_toggle_off</mat-icon>
+                <p>Aucune modification tracée.</p>
+              </div>
+            }
+          </aside>
+        </div>
+      </section>
+    </div>
+  }
 }
